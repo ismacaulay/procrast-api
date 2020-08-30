@@ -7,4 +7,24 @@ An api for managing your procrastination.
 procrast is basically a simple todo application. The main reason is that it gives a small and clear set of requirements which is good for learning a new languages (rust and go).
 This is part of a larger system to learn about cli, api, and everything to do with managing and deploying a microservice based system.
 
-### TODO
+### Routes
+
+```
+/lists
+    GET - Returns all the lists for the user
+    POST - Creates a new list for the user
+
+/lists/<id>
+    GET - Returns the info for the list
+    PATCH - Updates the list info
+    DELETE - Deletes the list and all items associated with that list
+
+/lists/<id>/items
+    GET - Returns all the items for a list
+    POST - Creates a new item in the list
+
+/lists/<id>/items/<id>
+    GET - Returns the item information
+    PATCH - Updates the item information
+    DELETE - Deletes the item
+```
