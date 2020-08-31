@@ -1,7 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"ismacaulay/procrast-api/pkg/api"
+)
 
 func main() {
-	fmt.Println("Hello World")
+	api := api.New()
+	api.Run()
 }
