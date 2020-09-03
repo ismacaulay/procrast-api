@@ -31,6 +31,7 @@ This is part of a larger system to learn about cli, api, and everything to do wi
 
 ### TODO
 
+- Implemented database functions
 - Use transactions when interacting with the database when deleting lists
   - Maybe something like a context manager
 
@@ -44,3 +45,9 @@ if tx.Commit() != nil {
 
 }
 ```
+
+- Proper error messages for validation
+  - They are currently just empty strings
+- Middleware for checking if list exists in item endpoints
+  - This will remove the duplication in the handlers
+  - Can send the list id in the context?

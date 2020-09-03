@@ -63,7 +63,7 @@ func postListHandler(db db.Database) http.HandlerFunc {
 func getListHandler(db db.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
-		listId := chi.URLParam(r, "id")
+		listId := chi.URLParam(r, "listId")
 
 		list, err := db.RetrieveList(user, listId)
 		if err != nil {
@@ -106,7 +106,11 @@ func patchListHandler(db db.Database) http.HandlerFunc {
 			list.Description = request.Description
 		}
 
-		db.UpdateList(user, list)
+		if db.UpdateList(user, list) != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			return
+		}
+
 		respondWithJSON(w, http.StatusOK, list)
 	}
 }

@@ -32,19 +32,19 @@ func New(db db.Database) *Api {
 			r.Get("/", getListsHandler(db))
 			r.Post("/", postListHandler(db))
 
-			r.Route("/{id:[0-9a-zA-Z]+}", func(r chi.Router) {
+			r.Route("/{listId:[0-9a-zA-Z]+}", func(r chi.Router) {
 				r.Get("/", getListHandler(db))
 				r.Patch("/", patchListHandler(db))
 				r.Delete("/", deleteListHandler(db))
 
 				r.Route("/items", func(r chi.Router) {
-					r.Get("/", getItemsHandler)
-					r.Post("/", postItemHandler)
+					r.Get("/", getItemsHandler(db))
+					r.Post("/", postItemHandler(db))
 
-					r.Route("/{id:[0-9a-zA-Z]+}", func(r chi.Router) {
-						r.Get("/", getItemHandler)
-						r.Patch("/", patchItemHandler)
-						r.Delete("/", deleteItemHandler)
+					r.Route("/{itemId:[0-9a-zA-Z]+}", func(r chi.Router) {
+						r.Get("/", getItemHandler(db))
+						r.Patch("/", patchItemHandler(db))
+						r.Delete("/", deleteItemHandler(db))
 					})
 				})
 			})
