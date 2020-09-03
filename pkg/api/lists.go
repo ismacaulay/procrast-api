@@ -7,6 +7,7 @@ import (
 	"ismacaulay/procrast-api/pkg/db"
 	"ismacaulay/procrast-api/pkg/models"
 
+	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 )
 
@@ -37,8 +38,7 @@ func postListHandler(db db.Database) http.HandlerFunc {
 			return
 		}
 
-		err = request.Validate(true)
-		if err != nil {
+		if request.Validate(true) != nil {
 			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
 			return
 		}
@@ -61,13 +61,79 @@ func postListHandler(db db.Database) http.HandlerFunc {
 }
 
 func getListHandler(db db.Database) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {}
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(string)
+		listId := chi.URLParam(r, "id")
+
+		list, err := db.RetrieveList(user, listId)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, list)
+	}
 }
 
 func patchListHandler(db db.Database) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {}
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(string)
+		listId := chi.URLParam(r, "id")
+
+		var request models.List
+		err := json.NewDecoder(r.Body).Decode(&request)
+		if err != nil {
+			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
+			return
+		}
+
+		if request.Validate(false) != nil {
+			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
+			return
+		}
+
+		list, err := db.RetrieveList(user, listId)
+		if err != nil {
+			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
+			return
+		}
+
+		if request.Title != nil {
+			list.Title = request.Title
+		}
+
+		if request.Description != nil {
+			list.Description = request.Description
+		}
+
+		db.UpdateList(user, list)
+		respondWithJSON(w, http.StatusOK, list)
+	}
 }
 
 func deleteListHandler(db db.Database) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {}
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := r.Context().Value("user").(string)
+		listId := chi.URLParam(r, "id")
+
+		items, err := db.RetrieveAllItems(user, listId)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			return
+		}
+
+		for _, item := range items {
+			if db.DeleteItem(user, listId, item.Id.String()) != nil {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+				return
+			}
+		}
+
+		if db.DeleteList(user, listId) != nil {
+			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			return
+		}
+
+		respondWithJSON(w, http.StatusNoContent, nil)
+	}
 }

@@ -23,4 +23,7 @@ func (l List) Validate(required bool) error {
 }
 
 type Item struct {
+	Id          *uuid.UUID `json:"id,omitempty"`
+	Title       *string    `json:"title,omitempty"`
+	Description *string    `json:"description,omitempty"`
 }

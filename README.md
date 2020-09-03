@@ -28,3 +28,19 @@ This is part of a larger system to learn about cli, api, and everything to do wi
     PATCH - Updates the item information
     DELETE - Deletes the item
 ```
+
+### TODO
+
+- Use transactions when interacting with the database when deleting lists
+  - Maybe something like a context manager
+
+```
+tx := db.Trasaction(func (db Database) {
+    db.Delete()
+    db.Create()
+})
+
+if tx.Commit() != nil {
+
+}
+```
