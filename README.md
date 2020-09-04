@@ -51,3 +51,5 @@ if tx.Commit() != nil {
 - Middleware for checking if list exists in item endpoints
   - This will remove the duplication in the handlers
   - Can send the list id in the context?
+- Look into sslmode on the database connection
+- Do we have too much logging?

@@ -78,7 +78,7 @@ func getListHandler(db db.Database) http.HandlerFunc {
 func patchListHandler(db db.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
-		listId := chi.URLParam(r, "id")
+		listId := chi.URLParam(r, "listId")
 
 		var request models.List
 		err := json.NewDecoder(r.Body).Decode(&request)
@@ -118,20 +118,7 @@ func patchListHandler(db db.Database) http.HandlerFunc {
 func deleteListHandler(db db.Database) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
-		listId := chi.URLParam(r, "id")
-
-		items, err := db.RetrieveAllItems(user, listId)
-		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
-			return
-		}
-
-		for _, item := range items {
-			if db.DeleteItem(user, listId, item.Id.String()) != nil {
-				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
-				return
-			}
-		}
+		listId := chi.URLParam(r, "listId")
 
 		if db.DeleteList(user, listId) != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))

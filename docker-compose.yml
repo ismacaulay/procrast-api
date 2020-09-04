@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  db:
+    build:
+      context: ./db
+    volumes:
+      - ./db/data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: supersecret
+    ports:
+      - 5432:5432

@@ -1,6 +1,18 @@
 package db
 
-import "ismacaulay/procrast-api/pkg/models"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"time"
+
+	"ismacaulay/procrast-api/pkg/models"
+
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
+)
 
 type Database interface {
 	RetrieveAllLists(user string) ([]models.List, error)
@@ -16,30 +28,161 @@ type Database interface {
 	DeleteItem(user, list_id, item_id string) error
 }
 
+var (
+	ErrFailedToLoadData   = errors.New("Failed to load data")
+	ErrFailedToUpdateData = errors.New("Failed to update data")
+	ErrFailedToDeleteData = errors.New("Failed to delete data")
+	ErrFailedToScanRow    = errors.New("Failed to scan row")
+	ErrFailedToInsert     = errors.New("Failed to insert into database")
+	ErrPasswordMismatch   = errors.New("Failed to validate password")
+)
+
+var (
+	host     = os.Getenv("POSTGRES_HOST")
+	port     = os.Getenv("POSTGRES_PORT")
+	user     = os.Getenv("POSTGRES_USER")
+	password = os.Getenv("POSTGRES_PASSWORD")
+	dbname   = os.Getenv("POSTGRES_DB")
+)
+
 type PostgresDatabase struct {
+	conn *sql.DB
 }
 
 func NewPostgresDatabase() *PostgresDatabase {
-	return &PostgresDatabase{}
+	log.Println("Initializing postgres")
+	dbinfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, password, dbname)
+	conn, err := sql.Open("postgres", dbinfo)
+	if err != nil {
+		log.Fatalf("Unable to open db: %s", err)
+	}
+
+	if err = conn.Ping(); err != nil {
+		log.Fatalf("Unable to connect to db: %s", err)
+	}
+
+	return &PostgresDatabase{conn}
 }
 
 func (db *PostgresDatabase) RetrieveAllLists(user string) ([]models.List, error) {
-	return []models.List{}, nil
+	sqlStatement := `
+		SELECT id, title, description FROM lists
+		WHERE user_id = $1 ORDER BY date_created DESC`
+
+	rows, err := db.conn.Query(sqlStatement, user)
+	if err != nil {
+		log.Printf("Failed to load messages for user %s\nError: %s\n", user, err.Error())
+		return []models.List{}, ErrFailedToLoadData
+	}
+	defer rows.Close()
+
+	lists := make([]models.List, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		var title, description string
+		if err := rows.Scan(&id, &title, &description); err != nil {
+			log.Printf("Failed to scan row: %s\n", err.Error())
+			return []models.List{}, ErrFailedToScanRow
+		}
+
+		list := models.List{
+			Id:          &id,
+			Title:       &title,
+			Description: &description,
+		}
+		lists = append(lists, list)
+	}
+
+	return lists, nil
 }
 
 func (db *PostgresDatabase) RetrieveList(user, id string) (models.List, error) {
-	return models.List{}, nil
+	sqlStatement := `SELECT id, title, description FROM lists WHERE user_id = $1 AND id = $2`
+
+	var listId uuid.UUID
+	var title, description string
+	err := db.conn.QueryRow(sqlStatement, user, id).Scan(&listId, &title, &description)
+	if err != nil {
+		log.Printf("Failed to execute query: %s\n", err.Error())
+		return models.List{}, ErrFailedToLoadData
+	}
+
+	list := models.List{
+		Id:          &listId,
+		Title:       &title,
+		Description: &description,
+	}
+	return list, nil
 }
 
 func (db *PostgresDatabase) CreateList(user string, list models.List) error {
+	now := time.Now().UTC().Unix()
+
+	sqlStatement := `
+		INSERT INTO lists (id, date_created, date_modified, title, description, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
+
+	_, err := db.conn.Exec(sqlStatement, list.Id, now, now, list.Title, list.Description, user)
+	if err != nil {
+		log.Println("Failed to create list:", err)
+		return ErrFailedToInsert
+	}
+
 	return nil
 }
 
 func (db *PostgresDatabase) UpdateList(user string, list models.List) error {
+	now := time.Now().UTC().Unix()
+
+	sqlStatement := `
+		UPDATE lists
+		SET date_modified = $3, title = $4, description = $5
+		WHERE user_id = $1 AND id = $2`
+
+	_, err := db.conn.Exec(sqlStatement, user, list.Id, now, list.Title, list.Description)
+	if err != nil {
+		log.Println("Failed to update list:", err)
+		return ErrFailedToUpdateData
+	}
+
 	return nil
 }
 
 func (db *PostgresDatabase) DeleteList(user, list_id string) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		log.Println("Failed to start transaction:", err)
+		return ErrFailedToDeleteData
+	}
+
+	sqlStatement := `
+		DELETE FROM items i
+		USING lists l
+		WHERE l.user_id = $1 AND l.id = i.list_id AND l.id = $2`
+
+	_, err = tx.Exec(sqlStatement, user, list_id)
+	if err != nil {
+		log.Println("Failed to delete items from list:", err)
+		tx.Rollback()
+		return ErrFailedToDeleteData
+	}
+
+	sqlStatement = `
+		DELETE FROM lists
+		WHERE user_id = $1 AND id = $2`
+
+	_, err = tx.Exec(sqlStatement, user, list_id)
+	if err != nil {
+		log.Println("Failed to delete list:", err)
+		tx.Rollback()
+		return ErrFailedToDeleteData
+	}
+
+	if err = tx.Commit(); err != nil {
+		log.Printf("Failed to commit transaction: %s\n", err.Error())
+		return ErrFailedToDeleteData
+	}
 	return nil
 }
 

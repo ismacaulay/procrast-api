@@ -22,7 +22,8 @@ func New(db db.Database) *Api {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, "user", "example")
+			userId := "1aaa6956-ac0a-4500-96a5-91803dcf8894"
+			ctx = context.WithValue(ctx, "user", userId)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
@@ -32,7 +33,9 @@ func New(db db.Database) *Api {
 			r.Get("/", getListsHandler(db))
 			r.Post("/", postListHandler(db))
 
-			r.Route("/{listId:[0-9a-zA-Z]+}", func(r chi.Router) {
+			r.Route("/{listId}", func(r chi.Router) {
+				r.Use(validateUUIDParameterMiddleware("listId"))
+
 				r.Get("/", getListHandler(db))
 				r.Patch("/", patchListHandler(db))
 				r.Delete("/", deleteListHandler(db))
@@ -41,7 +44,9 @@ func New(db db.Database) *Api {
 					r.Get("/", getItemsHandler(db))
 					r.Post("/", postItemHandler(db))
 
-					r.Route("/{itemId:[0-9a-zA-Z]+}", func(r chi.Router) {
+					r.Route("/{itemId}", func(r chi.Router) {
+						r.Use(validateUUIDParameterMiddleware("itemId"))
+
 						r.Get("/", getItemHandler(db))
 						r.Patch("/", patchItemHandler(db))
 						r.Delete("/", deleteItemHandler(db))
