@@ -8,6 +8,6 @@ import (
 func main() {
 	db := db.NewPostgresDatabase()
 
-	api := api.New(db)
+	api := api.New(db.Conn)
 	api.Run()
 }

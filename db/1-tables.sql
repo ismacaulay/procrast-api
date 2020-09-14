@@ -15,3 +15,11 @@ CREATE TABLE items (
     description text,
     list_id uuid REFERENCES lists(id)
 );
+
+CREATE TABLE history (
+    id uuid PRIMARY KEY,
+    command text,
+    state bytea,
+    created bigint,
+    user_id uuid
+);

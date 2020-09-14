@@ -4,6 +4,13 @@ services:
   db:
     build:
       context: ./db
+    environment:
+      POSTGRES_PASSWORD: supersecret
+    ports:
+      - 5432:5432
+  db_persistant:
+    build:
+      context: ./db
     volumes:
       - ./db/data:/var/lib/postgresql/data
     environment:

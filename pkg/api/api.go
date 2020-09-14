@@ -14,7 +14,7 @@ type Api struct {
 	router *chi.Mux
 }
 
-func New(db db.Database) *Api {
+func New(db db.DB) *Api {
 	r := chi.NewRouter()
 
 	// TODO: This is a temporary to add a user id to the request.
@@ -53,6 +53,11 @@ func New(db db.Database) *Api {
 					})
 				})
 			})
+		})
+
+		r.Route("/history", func(r chi.Router) {
+			r.Get("/", getHistoryHandler(db))
+			r.Post("/", postHistoryHandler(db))
 		})
 	})
 

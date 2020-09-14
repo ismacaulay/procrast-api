@@ -11,11 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func getListsHandler(db db.Database) http.HandlerFunc {
+func getListsHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 
-		lists, err := db.RetrieveAllLists(user)
+		lists, err := db.RetrieveAllLists(conn, user)
 		if err != nil {
 			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
 			return
@@ -27,7 +27,7 @@ func getListsHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func postListHandler(db db.Database) http.HandlerFunc {
+func postListHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 
@@ -50,7 +50,7 @@ func postListHandler(db db.Database) http.HandlerFunc {
 		}
 
 		request.Id = &id
-		err = db.CreateList(user, request)
+		err = db.CreateList(conn, user, request)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
@@ -60,12 +60,12 @@ func postListHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func getListHandler(db db.Database) http.HandlerFunc {
+func getListHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 
-		list, err := db.RetrieveList(user, listId)
+		list, err := db.RetrieveList(conn, user, listId)
 		if err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
@@ -75,7 +75,7 @@ func getListHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func patchListHandler(db db.Database) http.HandlerFunc {
+func patchListHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
@@ -92,7 +92,7 @@ func patchListHandler(db db.Database) http.HandlerFunc {
 			return
 		}
 
-		list, err := db.RetrieveList(user, listId)
+		list, err := db.RetrieveList(conn, user, listId)
 		if err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
@@ -106,7 +106,7 @@ func patchListHandler(db db.Database) http.HandlerFunc {
 			list.Description = request.Description
 		}
 
-		if db.UpdateList(user, list) != nil {
+		if db.UpdateList(conn, user, list) != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
@@ -115,12 +115,12 @@ func patchListHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func deleteListHandler(db db.Database) http.HandlerFunc {
+func deleteListHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 
-		if db.DeleteList(user, listId) != nil {
+		if db.DeleteList(conn, user, listId) != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}

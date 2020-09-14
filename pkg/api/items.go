@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
+	"time"
 
 	"ismacaulay/procrast-api/pkg/db"
 	"ismacaulay/procrast-api/pkg/models"
@@ -11,17 +13,17 @@ import (
 	"github.com/google/uuid"
 )
 
-func getItemsHandler(db db.Database) http.HandlerFunc {
+func getItemsHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 
-		if _, err := db.RetrieveList(user, listId); err != nil {
+		if _, err := db.RetrieveList(conn, user, listId); err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		items, err := db.RetrieveAllItems(user, listId)
+		items, err := db.RetrieveAllItems(conn, user, listId)
 		if err != nil {
 			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
 			return
@@ -33,12 +35,13 @@ func getItemsHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func postItemHandler(db db.Database) http.HandlerFunc {
+func postItemHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
+		now := time.Now().UTC().Unix()
 
-		if _, err := db.RetrieveList(user, listId); err != nil {
+		if _, err := db.RetrieveList(conn, user, listId); err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
@@ -62,8 +65,38 @@ func postItemHandler(db db.Database) http.HandlerFunc {
 		}
 
 		request.Id = &id
-		err = db.CreateItem(user, listId, request)
+		request.Created = &now
+		request.Modified = &now
+
+		err = db.Transaction(conn, func(conn db.Conn) error {
+			if err := db.CreateItem(conn, user, listId, request); err != nil {
+				return err
+			}
+
+			state, err := json.Marshal(request)
+			if err != nil {
+				return err
+			}
+
+			id, err := uuid.NewRandom()
+			if err != nil {
+				return err
+			}
+			history := models.History{
+				Id:      id,
+				Command: "ITEM CREATE",
+				State:   state,
+				Created: now,
+			}
+
+			if err := db.CreateHistory(conn, user, history); err != nil {
+				return err
+			}
+			return nil
+		})
+
 		if err != nil {
+			log.Println("Failed to execute transaction:", err)
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
@@ -72,18 +105,18 @@ func postItemHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func getItemHandler(db db.Database) http.HandlerFunc {
+func getItemHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 		itemId := chi.URLParam(r, "itemId")
 
-		if _, err := db.RetrieveList(user, listId); err != nil {
+		if _, err := db.RetrieveList(conn, user, listId); err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		item, err := db.RetrieveItem(user, listId, itemId)
+		item, err := db.RetrieveItem(conn, user, listId, itemId)
 		if err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
@@ -93,13 +126,13 @@ func getItemHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func patchItemHandler(db db.Database) http.HandlerFunc {
+func patchItemHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 		itemId := chi.URLParam(r, "itemId")
 
-		if _, err := db.RetrieveList(user, listId); err != nil {
+		if _, err := db.RetrieveList(conn, user, listId); err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
@@ -116,7 +149,7 @@ func patchItemHandler(db db.Database) http.HandlerFunc {
 			return
 		}
 
-		item, err := db.RetrieveItem(user, listId, itemId)
+		item, err := db.RetrieveItem(conn, user, listId, itemId)
 		if err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
@@ -130,7 +163,7 @@ func patchItemHandler(db db.Database) http.HandlerFunc {
 			item.Description = request.Description
 		}
 
-		if db.UpdateItem(user, listId, item) != nil {
+		if db.UpdateItem(conn, user, listId, item) != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
@@ -139,18 +172,18 @@ func patchItemHandler(db db.Database) http.HandlerFunc {
 	}
 }
 
-func deleteItemHandler(db db.Database) http.HandlerFunc {
+func deleteItemHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		listId := chi.URLParam(r, "listId")
 		itemId := chi.URLParam(r, "itemId")
 
-		if _, err := db.RetrieveList(user, listId); err != nil {
+		if _, err := db.RetrieveList(conn, user, listId); err != nil {
 			respondWithError(w, http.StatusNotFound, http.StatusText(http.StatusNotFound))
 			return
 		}
 
-		if db.DeleteItem(user, listId, itemId) != nil {
+		if db.DeleteItem(conn, user, listId, itemId) != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
