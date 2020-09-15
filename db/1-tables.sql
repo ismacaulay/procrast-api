@@ -11,6 +11,7 @@ CREATE TABLE items (
     id uuid PRIMARY KEY,
     title text,
     description text,
+    state smallint,
     created bigint,
     modified bigint,
     list_id uuid REFERENCES lists(id)

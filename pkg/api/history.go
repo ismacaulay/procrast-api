@@ -14,6 +14,8 @@ var (
 	CmdListUpdate = "LIST UPDATE"
 	CmdListDelete = "LIST DELETE"
 	CmdItemCreate = "ITEM CREATE"
+	CmdItemUpdate = "ITEM UPDATE"
+	CmdItemDelete = "ITEM DELETE"
 )
 
 func getHistoryHandler(conn db.DB) http.HandlerFunc {

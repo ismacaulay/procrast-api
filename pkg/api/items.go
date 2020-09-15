@@ -50,6 +50,7 @@ func postItemHandler(conn db.DB) http.HandlerFunc {
 		var request struct {
 			Title       *string `json:"title,omitempty"`
 			Description string  `json:"description"`
+			State       uint8   `json:"state"`
 		}
 		if json.NewDecoder(r.Body).Decode(&request); err != nil {
 			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
@@ -71,6 +72,7 @@ func postItemHandler(conn db.DB) http.HandlerFunc {
 			UUID:        id,
 			Title:       *request.Title,
 			Description: request.Description,
+			State:       request.State,
 			Created:     now,
 			Modified:    now,
 			ListUUID:    list.UUID,
@@ -81,23 +83,7 @@ func postItemHandler(conn db.DB) http.HandlerFunc {
 				return err
 			}
 
-			state, err := json.Marshal(item)
-			if err != nil {
-				return err
-			}
-
-			id, err := uuid.NewRandom()
-			if err != nil {
-				return err
-			}
-			history := models.History{
-				UUID:    id,
-				Command: CmdItemCreate,
-				State:   state,
-				Created: now,
-			}
-
-			if err := db.CreateHistory(conn, user, history); err != nil {
+			if err := createHistoryForState(conn, CmdItemCreate, user, now, item); err != nil {
 				return err
 			}
 			return nil
@@ -136,6 +122,7 @@ func patchItemHandler(conn db.DB) http.HandlerFunc {
 		var request struct {
 			Title       *string `json:"title,omitempty"`
 			Description *string `json:"description,omitempty"`
+			State       *uint8  `json:"state,omitempty"`
 		}
 		err := json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {
@@ -149,17 +136,42 @@ func patchItemHandler(conn db.DB) http.HandlerFunc {
 			return
 		}
 
+		updated := false
 		if request.Title != nil {
 			item.Title = *request.Title
+			updated = true
 		}
 
 		if request.Description != nil {
 			item.Description = *request.Description
+			updated = true
 		}
 
-		if db.UpdateItem(conn, user, item) != nil {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
-			return
+		if request.State != nil {
+			item.State = *request.State
+			updated = true
+		}
+
+		if updated {
+			now := time.Now().UTC().Unix()
+			item.Modified = now
+
+			err = db.Transaction(conn, func(tx db.Conn) error {
+				if err = db.UpdateItem(tx, user, item); err != nil {
+					return err
+				}
+
+				if err := createHistoryForState(conn, CmdItemUpdate, user, now, item); err != nil {
+					return err
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+				return
+			}
 		}
 
 		respondWithJSON(w, http.StatusOK, item)
@@ -170,6 +182,7 @@ func deleteItemHandler(conn db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := r.Context().Value("user").(string)
 		itemId := chi.URLParam(r, "itemId")
+		now := time.Now().UTC().Unix()
 
 		item, err := db.RetrieveItem(conn, user, itemId)
 		if err != nil {
@@ -177,7 +190,23 @@ func deleteItemHandler(conn db.DB) http.HandlerFunc {
 			return
 		}
 
-		if db.DeleteItem(conn, user, item) != nil {
+		err = db.Transaction(conn, func(tx db.Conn) error {
+			if err := db.DeleteItem(conn, user, item); err != nil {
+				return err
+			}
+
+			state := struct {
+				UUID uuid.UUID `json:"uuid"`
+			}{UUID: item.UUID}
+
+			if err := createHistoryForState(conn, CmdItemDelete, user, now, state); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
 		}
