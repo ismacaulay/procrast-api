@@ -1,18 +1,18 @@
 CREATE TABLE lists (
     id uuid PRIMARY KEY,
-    date_created bigint,
-    date_modified bigint,
     title text,
     description text,
+    created bigint,
+    modified bigint,
     user_id uuid
 );
 
 CREATE TABLE items (
     id uuid PRIMARY KEY,
-    date_created bigint,
-    date_modified bigint,
     title text,
     description text,
+    created bigint,
+    modified bigint,
     list_id uuid REFERENCES lists(id)
 );
 

@@ -79,8 +79,8 @@ func Transaction(conn DB, f func(Conn) error) error {
 
 func RetrieveAllLists(conn Conn, user string) ([]models.List, error) {
 	sqlStatement := `
-		SELECT id, title, description FROM lists
-		WHERE user_id = $1 ORDER BY date_created DESC`
+		SELECT id, title, description, created, modified FROM lists
+		WHERE user_id = $1 ORDER BY created DESC`
 
 	rows, err := conn.Query(sqlStatement, user)
 	if err != nil {
@@ -93,15 +93,18 @@ func RetrieveAllLists(conn Conn, user string) ([]models.List, error) {
 	for rows.Next() {
 		var id uuid.UUID
 		var title, description string
-		if err := rows.Scan(&id, &title, &description); err != nil {
+		var created, modified int64
+		if err := rows.Scan(&id, &title, &description, &created, &modified); err != nil {
 			log.Printf("Failed to scan row: %s\n", err.Error())
 			return []models.List{}, ErrFailedToScanRow
 		}
 
 		list := models.List{
-			Id:          &id,
-			Title:       &title,
-			Description: &description,
+			UUID:        id,
+			Title:       title,
+			Description: description,
+			Created:     created,
+			Modified:    modified,
 		}
 		lists = append(lists, list)
 	}
@@ -110,32 +113,33 @@ func RetrieveAllLists(conn Conn, user string) ([]models.List, error) {
 }
 
 func RetrieveList(conn Conn, user, id string) (models.List, error) {
-	sqlStatement := `SELECT id, title, description FROM lists WHERE user_id = $1 AND id = $2`
+	sqlStatement := `SELECT id, title, description, created, modified FROM lists WHERE user_id = $1 AND id = $2`
 
 	var listId uuid.UUID
 	var title, description string
-	err := conn.QueryRow(sqlStatement, user, id).Scan(&listId, &title, &description)
+	var created, modified int64
+	err := conn.QueryRow(sqlStatement, user, id).Scan(&listId, &title, &description, &created, &modified)
 	if err != nil {
 		log.Printf("Failed to execute query: %s\n", err.Error())
 		return models.List{}, ErrFailedToLoadData
 	}
 
 	list := models.List{
-		Id:          &listId,
-		Title:       &title,
-		Description: &description,
+		UUID:        listId,
+		Title:       title,
+		Description: description,
+		Created:     created,
+		Modified:    modified,
 	}
 	return list, nil
 }
 
 func CreateList(conn Conn, user string, list models.List) error {
-	now := time.Now().UTC().Unix()
-
 	sqlStatement := `
-		INSERT INTO lists (id, date_created, date_modified, title, description, user_id)
+		INSERT INTO lists (id, created, modified, title, description, user_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	_, err := conn.Exec(sqlStatement, list.Id, now, now, list.Title, list.Description, user)
+	_, err := conn.Exec(sqlStatement, list.UUID, list.Created, list.Modified, list.Title, list.Description, user)
 	if err != nil {
 		log.Println("Failed to create list:", err)
 		return ErrFailedToInsert
@@ -145,14 +149,12 @@ func CreateList(conn Conn, user string, list models.List) error {
 }
 
 func UpdateList(conn Conn, user string, list models.List) error {
-	now := time.Now().UTC().Unix()
-
 	sqlStatement := `
 		UPDATE lists
-		SET date_modified = $3, title = $4, description = $5
+		SET modified = $3, title = $4, description = $5
 		WHERE user_id = $1 AND id = $2`
 
-	_, err := conn.Exec(sqlStatement, user, list.Id, now, list.Title, list.Description)
+	_, err := conn.Exec(sqlStatement, user, list.UUID, list.Modified, list.Title, list.Description)
 	if err != nil {
 		log.Println("Failed to update list:", err)
 		return ErrFailedToUpdateData
@@ -188,7 +190,7 @@ func DeleteList(conn Conn, user, list_id string) error {
 
 func RetrieveAllItems(conn Conn, user, list_id string) ([]models.Item, error) {
 	sqlStatement := `
-		SELECT i.id, i.title, i.description
+		SELECT i.id, i.title, i.description, i.date_created, i.date_modified, l.id
 		FROM items i
 		INNER JOIN lists l ON (i.list_id = l.id)
 		WHERE l.user_id = $1 AND i.list_id = $2
@@ -203,17 +205,21 @@ func RetrieveAllItems(conn Conn, user, list_id string) ([]models.Item, error) {
 
 	items := make([]models.Item, 0)
 	for rows.Next() {
-		var id uuid.UUID
+		var itemId, listId uuid.UUID
 		var title, description string
-		if err := rows.Scan(&id, &title, &description); err != nil {
+		var created, modified int64
+		if err := rows.Scan(&itemId, &title, &description, &created, &modified, &listId); err != nil {
 			log.Printf("Failed to scan row: %s\n", err.Error())
 			return []models.Item{}, ErrFailedToScanRow
 		}
 
 		item := models.Item{
-			Id:          &id,
-			Title:       &title,
-			Description: &description,
+			UUID:        itemId,
+			Title:       title,
+			Description: description,
+			Created:     created,
+			Modified:    modified,
+			ListUUID:    listId,
 		}
 		items = append(items, item)
 	}
@@ -221,38 +227,42 @@ func RetrieveAllItems(conn Conn, user, list_id string) ([]models.Item, error) {
 	return items, nil
 }
 
-func RetrieveItem(conn Conn, user, list_id, item_id string) (models.Item, error) {
+func RetrieveItem(conn Conn, user, id string) (models.Item, error) {
 	sqlStatement := `
-		SELECT i.id, i.title, i.description
+		SELECT i.id, i.title, i.description, i.date_created, i.date_modified, l.id
 		FROM items i
 		INNER JOIN lists l ON (i.list_id = l.id)
-		WHERE l.user_id = $1 AND i.list_id = $2 AND i.id = $3
+		WHERE l.user_id = $1 AND i.id = $2
 		ORDER BY i.date_created DESC`
 
-	var listId uuid.UUID
+	var itemId, listId uuid.UUID
+	var created, modified int64
 	var title, description string
-	err := conn.QueryRow(sqlStatement, user, list_id, item_id).Scan(&listId, &title, &description)
+	err := conn.QueryRow(sqlStatement, user, id).Scan(&itemId, &title, &description, &created, &modified, &listId)
 	if err != nil {
 		log.Printf("Failed to execute query: %s\n", err.Error())
 		return models.Item{}, ErrFailedToLoadData
 	}
 
 	item := models.Item{
-		Id:          &listId,
-		Title:       &title,
-		Description: &description,
+		UUID:        itemId,
+		Title:       title,
+		Description: description,
+		Created:     created,
+		Modified:    modified,
+		ListUUID:    listId,
 	}
 	return item, nil
 }
 
-func CreateItem(conn Conn, user, list_id string, item models.Item) error {
+func CreateItem(conn Conn, item models.Item) error {
 	sqlStatement := `
 		INSERT INTO items (id, date_created, date_modified, title, description, list_id)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err := conn.Exec(sqlStatement,
-		item.Id, item.Created, item.Modified,
-		item.Title, item.Description, list_id)
+		item.UUID, item.Created, item.Modified,
+		item.Title, item.Description, item.ListUUID)
 	if err != nil {
 		log.Println("Failed to create item:", err)
 		return ErrFailedToInsert
@@ -261,7 +271,7 @@ func CreateItem(conn Conn, user, list_id string, item models.Item) error {
 	return nil
 }
 
-func UpdateItem(conn Conn, user, list_id string, item models.Item) error {
+func UpdateItem(conn Conn, user string, item models.Item) error {
 	now := time.Now().UTC().Unix()
 
 	sqlStatement := `
@@ -273,7 +283,7 @@ func UpdateItem(conn Conn, user, list_id string, item models.Item) error {
 			AND items.id = $3`
 
 	_, err := conn.Exec(sqlStatement,
-		user, list_id, item.Id, now, item.Title, item.Description,
+		user, item.ListUUID, item.UUID, now, item.Title, item.Description,
 	)
 	if err != nil {
 		log.Println("Failed to update item:", err)
@@ -283,7 +293,7 @@ func UpdateItem(conn Conn, user, list_id string, item models.Item) error {
 	return nil
 }
 
-func DeleteItem(conn Conn, user, list_id, item_id string) error {
+func DeleteItem(conn Conn, user string, item models.Item) error {
 	sqlStatement := `
 		DELETE FROM items
 		USING lists
@@ -291,7 +301,7 @@ func DeleteItem(conn Conn, user, list_id, item_id string) error {
 			AND items.list_id = $2
 			AND items.id = $3`
 
-	_, err := conn.Exec(sqlStatement, user, list_id, item_id)
+	_, err := conn.Exec(sqlStatement, user, item.ListUUID, item.UUID)
 	if err != nil {
 		log.Println("Failed to update item:", err)
 		return ErrFailedToUpdateData
@@ -325,7 +335,7 @@ func GetHistory(conn Conn, user string, since uint64) ([]models.History, error) 
 		}
 
 		item := models.History{
-			Id:      id,
+			UUID:    id,
 			Command: command,
 			State:   state,
 			Created: created,
@@ -342,7 +352,7 @@ func CreateHistory(conn Conn, user string, history models.History) error {
 		VALUES ($1, $2, $3, $4, $5)`
 
 	_, err := conn.Exec(sqlStatement,
-		history.Id, history.Command, history.State, history.Created, user)
+		history.UUID, history.Command, history.State, history.Created, user)
 	if err != nil {
 		log.Println("Failed to create history:", err)
 		return ErrFailedToInsert

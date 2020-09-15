@@ -40,18 +40,18 @@ func New(db db.DB) *Api {
 				r.Patch("/", patchListHandler(db))
 				r.Delete("/", deleteListHandler(db))
 
-				r.Route("/items", func(r chi.Router) {
-					r.Get("/", getItemsHandler(db))
-					r.Post("/", postItemHandler(db))
+				r.Get("/items", getItemsHandler(db))
+				r.Post("/items", postItemHandler(db))
+			})
+		})
 
-					r.Route("/{itemId}", func(r chi.Router) {
-						r.Use(validateUUIDParameterMiddleware("itemId"))
+		r.Route("/items", func(r chi.Router) {
+			r.Route("/{itemId}", func(r chi.Router) {
+				r.Use(validateUUIDParameterMiddleware("itemId"))
 
-						r.Get("/", getItemHandler(db))
-						r.Patch("/", patchItemHandler(db))
-						r.Delete("/", deleteItemHandler(db))
-					})
-				})
+				r.Get("/", getItemHandler(db))
+				r.Patch("/", patchItemHandler(db))
+				r.Delete("/", deleteItemHandler(db))
 			})
 		})
 
