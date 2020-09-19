@@ -93,13 +93,13 @@ func UpdateList(conn Conn, user string, list models.List) error {
 	return nil
 }
 
-func DeleteList(conn Conn, user, list_id string) error {
+func DeleteList(conn Conn, user string, list models.List) error {
 	sqlStatement := `
 		DELETE FROM items i
 		USING lists l
 		WHERE l.user_id = $1 AND l.id = i.list_id AND l.id = $2`
 
-	_, err := conn.Exec(sqlStatement, user, list_id)
+	_, err := conn.Exec(sqlStatement, user, list.UUID)
 	if err != nil {
 		log.Println("Failed to delete items from list:", err)
 		return ErrFailedToDeleteData
@@ -109,7 +109,7 @@ func DeleteList(conn Conn, user, list_id string) error {
 		DELETE FROM lists
 		WHERE user_id = $1 AND id = $2`
 
-	_, err = conn.Exec(sqlStatement, user, list_id)
+	_, err = conn.Exec(sqlStatement, user, list.UUID)
 	if err != nil {
 		log.Println("Failed to delete list:", err)
 		return ErrFailedToDeleteData

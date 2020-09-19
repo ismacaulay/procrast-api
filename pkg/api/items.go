@@ -157,7 +157,7 @@ func patchItemHandler(conn db.DB) http.HandlerFunc {
 			item.Modified = now
 
 			err = db.Transaction(conn, func(tx db.Conn) error {
-				if err = db.UpdateItem(tx, user, item); err != nil {
+				if err = db.UpdateItem(tx, item); err != nil {
 					return err
 				}
 
@@ -191,7 +191,7 @@ func deleteItemHandler(conn db.DB) http.HandlerFunc {
 		}
 
 		err = db.Transaction(conn, func(tx db.Conn) error {
-			if err := db.DeleteItem(conn, user, item); err != nil {
+			if err := db.DeleteItem(conn, item); err != nil {
 				return err
 			}
 

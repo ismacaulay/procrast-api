@@ -202,7 +202,7 @@ func deleteListHandler(conn db.DB) http.HandlerFunc {
 		}
 
 		err = db.Transaction(conn, func(tx db.Conn) error {
-			if err := db.DeleteList(tx, user, listId); err != nil {
+			if err := db.DeleteList(tx, user, list); err != nil {
 				return err
 			}
 			state, err := json.Marshal(struct {

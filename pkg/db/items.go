@@ -26,20 +26,10 @@ const insertItemStatement = `
 	INSERT INTO items (id, created, modified, title, description, state, list_id)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
-const updateItemStatement = `
-	UPDATE items
-	SET modified = $4, title = $5, description = $6, state = $7
-	FROM lists
-	WHERE lists.user_id = $1
-		AND items.list_id = $2
-		AND items.id = $3`
-
 const deleteItemStatement = `
 	DELETE FROM items
 	USING lists
-	WHERE lists.user_id = $1
-		AND items.list_id = $2
-		AND items.id = $3`
+	WHERE items.id = $1`
 
 func RetrieveAllItems(conn Conn, user, list_id string) ([]models.Item, error) {
 	rows, err := conn.Query(selectAllItemsStatement, user, list_id)
@@ -111,9 +101,15 @@ func CreateItem(conn Conn, item models.Item) error {
 	return nil
 }
 
-func UpdateItem(conn Conn, user string, item models.Item) error {
-	_, err := conn.Exec(updateItemStatement,
-		user, item.ListUUID, item.UUID, item.Modified, item.Title, item.Description, item.State,
+func UpdateItem(conn Conn, item models.Item) error {
+	sqlStatement := `
+		UPDATE items
+		SET modified = $2, title = $3, description = $4, state = $5
+		FROM lists
+		WHERE items.id = $1`
+
+	_, err := conn.Exec(sqlStatement,
+		item.UUID, item.Modified, item.Title, item.Description, item.State,
 	)
 	if err != nil {
 		log.Println("Failed to update item:", err)
@@ -123,8 +119,8 @@ func UpdateItem(conn Conn, user string, item models.Item) error {
 	return nil
 }
 
-func DeleteItem(conn Conn, user string, item models.Item) error {
-	_, err := conn.Exec(deleteItemStatement, user, item.ListUUID, item.UUID)
+func DeleteItem(conn Conn, item models.Item) error {
+	_, err := conn.Exec(deleteItemStatement, item.UUID)
 	if err != nil {
 		log.Println("Failed to update item:", err)
 		return ErrFailedToUpdateData

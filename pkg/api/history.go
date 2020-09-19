@@ -2,11 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
 	"ismacaulay/procrast-api/pkg/db"
 	"ismacaulay/procrast-api/pkg/models"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -33,7 +36,7 @@ func getHistoryHandler(conn db.DB) http.HandlerFunc {
 			since = s
 		}
 
-		history, err := db.GetHistory(conn, user, since)
+		history, err := db.GetHistorySince(conn, user, since)
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 			return
@@ -64,13 +67,74 @@ func postHistoryHandler(conn db.DB) http.HandlerFunc {
 			return
 		}
 
-		err = db.Transaction(conn, func(tx db.Conn) error {
-			for _, history := range *request.History {
+		processed := make([]uuid.UUID, 0)
+		for _, history := range *request.History {
+			err = db.Transaction(conn, func(tx db.Conn) error {
+				if _, err := db.GetHistory(tx, user, history.UUID); err == nil {
+					log.Println("Skipping: History already exists", history.UUID)
+					processed = append(processed, history.UUID)
+					return nil
+				}
+
 				if err := db.CreateHistory(tx, user, history); err != nil {
 					return err
 				}
 
 				switch history.Command {
+				case CmdListCreate:
+					{
+						var state models.List
+						if err := json.Unmarshal(history.State, &state); err != nil {
+							return err
+						}
+
+						if err := db.CreateList(tx, user, state); err != nil {
+							return err
+						}
+
+						processed = append(processed, state.UUID)
+					}
+				case CmdListUpdate:
+					{
+						var state models.List
+						if err := json.Unmarshal(history.State, &state); err != nil {
+							return err
+						}
+
+						list, err := db.RetrieveList(tx, user, state.UUID.String())
+						if err != nil {
+							return err
+						}
+
+						list.Title = state.Title
+						list.Description = state.Description
+						list.Modified = state.Modified
+						if err := db.UpdateList(tx, user, list); err != nil {
+							return err
+						}
+
+						processed = append(processed, state.UUID)
+					}
+				case CmdListDelete:
+					{
+						var state struct {
+							UUID uuid.UUID `json:"uuid"`
+						}
+						if err := json.Unmarshal(history.State, &state); err != nil {
+							return err
+						}
+
+						list, err := db.RetrieveList(conn, user, state.UUID.String())
+						if err != nil {
+							return err
+						}
+
+						if err := db.DeleteList(tx, user, list); err != nil {
+							return err
+						}
+
+						processed = append(processed, state.UUID)
+					}
 				case CmdItemCreate:
 					{
 						var state models.Item
@@ -81,20 +145,64 @@ func postHistoryHandler(conn db.DB) http.HandlerFunc {
 						if err := db.CreateItem(tx, state); err != nil {
 							return err
 						}
+
+						processed = append(processed, state.UUID)
+					}
+				case CmdItemUpdate:
+					{
+						var state models.Item
+						if err := json.Unmarshal(history.State, &state); err != nil {
+							return err
+						}
+
+						item, err := db.RetrieveItem(tx, user, state.UUID.String())
+						if err != nil {
+							return err
+						}
+
+						item.Title = state.Title
+						item.Description = state.Description
+						item.State = state.State
+						item.Modified = state.Modified
+						if err := db.UpdateItem(tx, item); err != nil {
+							return err
+						}
+
+						processed = append(processed, state.UUID)
+					}
+				case CmdItemDelete:
+					{
+						var state struct {
+							UUID uuid.UUID `json:"uuid"`
+						}
+						if err := json.Unmarshal(history.State, &state); err != nil {
+							return err
+						}
+
+						item, err := db.RetrieveItem(conn, user, state.UUID.String())
+						if err != nil {
+							return err
+						}
+
+						if err := db.DeleteItem(tx, item); err != nil {
+							return err
+						}
+
+						processed = append(processed, state.UUID)
 					}
 				}
-			}
 
-			return nil
-		})
+				return nil
+			})
 
-		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
-			return
+			// if err != nil {
+			// 	respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			// 	return
+			// }
 		}
 
 		respondWithJSON(w, http.StatusCreated, struct {
-			Processed int `json:"processed"`
-		}{Processed: len(*request.History)})
+			Processed []uuid.UUID `json:"processed"`
+		}{Processed: processed})
 	}
 }

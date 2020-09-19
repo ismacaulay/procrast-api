@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func GetHistory(conn Conn, user string, since uint64) ([]models.History, error) {
+func GetHistorySince(conn Conn, user string, since uint64) ([]models.History, error) {
 	sqlStatement := `
 		SELECT id, command, state, created
 		FROM history
@@ -41,6 +41,32 @@ func GetHistory(conn Conn, user string, since uint64) ([]models.History, error) 
 		history = append(history, item)
 	}
 
+	return history, nil
+}
+
+func GetHistory(conn Conn, user string, historyId uuid.UUID) (models.History, error) {
+	sqlStatement := `
+		SELECT id, command, state, created
+		FROM history
+		WHERE user_id = $1 AND id = $2`
+
+	var id uuid.UUID
+	var command string
+	var state []byte
+	var created int64
+	err := conn.QueryRow(sqlStatement, user, historyId).Scan(
+		&id, &command, &state, &created)
+	if err != nil {
+		log.Printf("Failed to execute query: %s\n", err.Error())
+		return models.History{}, ErrFailedToLoadData
+	}
+
+	history := models.History{
+		UUID:    id,
+		Command: command,
+		State:   state,
+		Created: created,
+	}
 	return history, nil
 }
 
