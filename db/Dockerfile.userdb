@@ -1,0 +1,3 @@
+FROM postgres:11-alpine
+
+COPY 2-users.sql /docker-entrypoint-initdb.d/

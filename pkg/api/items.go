@@ -52,7 +52,7 @@ func postItemHandler(conn db.DB) http.HandlerFunc {
 			Description string  `json:"description"`
 			State       uint8   `json:"state"`
 		}
-		if json.NewDecoder(r.Body).Decode(&request); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			respondWithError(w, http.StatusUnprocessableEntity, http.StatusText(http.StatusUnprocessableEntity))
 			return
 		}

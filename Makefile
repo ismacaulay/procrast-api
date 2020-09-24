@@ -7,3 +7,6 @@ build:
 run:
 	. env.sh && ./procrast-api
 
+build-admin:
+	go build ./cmd/admin
+

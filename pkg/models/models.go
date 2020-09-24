@@ -28,3 +28,11 @@ type History struct {
 	State   []byte    `json:"state"`
 	Created int64     `json:"created"`
 }
+
+type User struct {
+	UUID     uuid.UUID
+	Email    string
+	PassHash []byte
+	Created  int64
+	Modified int64
+}

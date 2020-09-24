@@ -4,7 +4,16 @@ services:
   db:
     build:
       context: ./db
+      dockerfile: Dockerfile
     environment:
       POSTGRES_PASSWORD: supersecret
     ports:
       - 5432:5432
+  userdb:
+    build:
+      context: ./db
+      dockerfile: Dockerfile.userdb
+    environment:
+      POSTGRES_PASSWORD: supersecret
+    ports:
+      - 5433:5432

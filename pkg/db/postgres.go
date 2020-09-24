@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -32,22 +31,22 @@ var (
 	ErrFailedToStartTransaction = errors.New("Failed to start transaction")
 )
 
-var (
-	host     = os.Getenv("POSTGRES_HOST")
-	port     = os.Getenv("POSTGRES_PORT")
-	user     = os.Getenv("POSTGRES_USER")
-	password = os.Getenv("POSTGRES_PASSWORD")
-	dbname   = os.Getenv("POSTGRES_DB")
-)
+type PostgresConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
+}
 
 type PostgresDatabase struct {
 	Conn *sql.DB
 }
 
-func NewPostgresDatabase() *PostgresDatabase {
+func NewPostgresDatabase(config PostgresConfig) *PostgresDatabase {
 	log.Println("Initializing postgres")
 	dbinfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+		config.Host, config.Port, config.User, config.Password, config.Name)
 	conn, err := sql.Open("postgres", dbinfo)
 	if err != nil {
 		log.Fatalf("Unable to open db: %s", err)
