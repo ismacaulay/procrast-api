@@ -18,9 +18,9 @@ func main() {
 	userDbConfig := db.PostgresConfig{
 		Host:     os.Getenv("USERDB_HOST"),
 		Port:     os.Getenv("USERDB_PORT"),
-		User:     os.Getenv("USERDB_USER"),
-		Password: os.Getenv("USERDB_PASSWORD"),
-		Name:     os.Getenv("USERDB_DB"),
+		User:     os.Getenv("POSTGRES_USER"),
+		Password: os.Getenv("POSTGRES_PASSWORD"),
+		Name:     os.Getenv("POSTGRES_DB"),
 	}
 	userDb := db.NewPostgresDatabase(userDbConfig)
 
