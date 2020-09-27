@@ -17,6 +17,10 @@ type Api struct {
 func New(db, userDb db.DB) *Api {
 	r := chi.NewRouter()
 
+	r.Get("/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	r.Route("/auth/v1", func(r chi.Router) {
 		r.Post("/login", postLoginHandler(userDb))
 	})
