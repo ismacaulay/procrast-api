@@ -17,7 +17,7 @@ image-db:
 	docker build -t $(ORG)/procrastdb -f ./db/Dockerfile ./db
 
 image-userdb:
-	docker build -t $(ORG)/userdb -f ./db/Dockerfile.userdb ./db
+	docker build -t $(ORG)/userdb -f ./db/userdb/Dockerfile ./db/userdb
 
 run-admin:
 	docker-compose exec api ./admin
