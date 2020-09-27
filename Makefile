@@ -19,3 +19,5 @@ image-db:
 image-userdb:
 	docker build -t $(ORG)/userdb -f ./db/Dockerfile.userdb ./db
 
+run-admin:
+	docker-compose exec api ./admin

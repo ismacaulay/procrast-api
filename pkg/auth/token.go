@@ -18,7 +18,8 @@ type TokenClaims struct {
 
 func GenerateToken(id string) (string, error) {
 	iat := time.Now()
-	exp := iat.Add(time.Hour * 12)
+	// TODO: There is probably a better way of doing this
+	exp := iat.Add(time.Hour * 24 * 3) // 3 day exp (for now)
 	iss, _ := os.Hostname()
 
 	standardClaims := jwt.StandardClaims{ExpiresAt: exp.Unix(), IssuedAt: iat.Unix(), Issuer: iss}

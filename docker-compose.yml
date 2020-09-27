@@ -7,13 +7,26 @@ services:
       dockerfile: Dockerfile
     environment:
       POSTGRES_PASSWORD: supersecret
-    ports:
-      - 5432:5432
   userdb:
     build:
-      context: ./db
-      dockerfile: Dockerfile.userdb
+      context: ./db/userdb
+      dockerfile: Dockerfile
     environment:
       POSTGRES_PASSWORD: supersecret
+  api:
+    build: .
+    depends_on:
+      - db
+      - userdb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: supersecret
+      POSTGRES_DB: postgres
+      PROCRASTDB_HOST: db
+      PROCRASTDB_PORT: 5432
+      USERDB_HOST: userdb
+      USERDB_PORT: 5432
+      JWT_SECRET: supersecretjwt
     ports:
-      - 5433:5432
+      - 8080:8080
+    restart: always
