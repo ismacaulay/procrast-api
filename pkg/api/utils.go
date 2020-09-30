@@ -33,10 +33,11 @@ func createHistoryForState(conn db.Conn, cmd, user string, now int64, state inte
 	}
 
 	history := models.History{
-		UUID:    id,
-		Command: cmd,
-		State:   encoded,
-		Created: now,
+		UUID:      id,
+		Command:   cmd,
+		State:     encoded,
+		Timestamp: now,
+		Created:   now,
 	}
 	if err := db.CreateHistory(conn, user, history); err != nil {
 		return err

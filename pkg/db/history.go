@@ -9,7 +9,7 @@ import (
 
 func GetHistorySince(conn Conn, user string, since uint64) ([]models.History, error) {
 	sqlStatement := `
-		SELECT id, command, state, created
+		SELECT id, command, state, ts, created
 		FROM history
 		WHERE user_id = $1 AND created >= $2
 		ORDER BY created ASC`
@@ -26,17 +26,18 @@ func GetHistorySince(conn Conn, user string, since uint64) ([]models.History, er
 		var id uuid.UUID
 		var command string
 		var state []byte
-		var created int64
-		if err := rows.Scan(&id, &command, &state, &created); err != nil {
+		var timestamp, created int64
+		if err := rows.Scan(&id, &command, &state, &timestamp, &created); err != nil {
 			log.Printf("Failed to scan row: %s\n", err.Error())
 			return []models.History{}, ErrFailedToScanRow
 		}
 
 		item := models.History{
-			UUID:    id,
-			Command: command,
-			State:   state,
-			Created: created,
+			UUID:      id,
+			Command:   command,
+			State:     state,
+			Timestamp: timestamp,
+			Created:   created,
 		}
 		history = append(history, item)
 	}
@@ -46,37 +47,38 @@ func GetHistorySince(conn Conn, user string, since uint64) ([]models.History, er
 
 func GetHistory(conn Conn, user string, historyId uuid.UUID) (models.History, error) {
 	sqlStatement := `
-		SELECT id, command, state, created
+		SELECT id, command, state, ts, created
 		FROM history
 		WHERE user_id = $1 AND id = $2`
 
 	var id uuid.UUID
 	var command string
 	var state []byte
-	var created int64
+	var timestamp, created int64
 	err := conn.QueryRow(sqlStatement, user, historyId).Scan(
-		&id, &command, &state, &created)
+		&id, &command, &state, &timestamp, &created)
 	if err != nil {
 		log.Printf("Failed to execute query: %s\n", err.Error())
 		return models.History{}, ErrFailedToLoadData
 	}
 
 	history := models.History{
-		UUID:    id,
-		Command: command,
-		State:   state,
-		Created: created,
+		UUID:      id,
+		Command:   command,
+		State:     state,
+		Timestamp: timestamp,
+		Created:   created,
 	}
 	return history, nil
 }
 
 func CreateHistory(conn Conn, user string, history models.History) error {
 	sqlStatement := `
-		INSERT INTO history (id, command, state, created, user_id)
-		VALUES ($1, $2, $3, $4, $5)`
+		INSERT INTO history (id, command, state, ts, created, user_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err := conn.Exec(sqlStatement,
-		history.UUID, history.Command, history.State, history.Created, user)
+		history.UUID, history.Command, history.State, history.Timestamp, history.Created, user)
 	if err != nil {
 		log.Println("Failed to create history:", err)
 		return ErrFailedToInsert

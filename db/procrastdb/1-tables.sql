@@ -21,6 +21,15 @@ CREATE TABLE history (
     id uuid PRIMARY KEY,
     command text,
     state bytea,
+    ts bigint,
     created bigint,
     user_id uuid
 );
+
+CREATE TABLE version (
+    version int PRIMARY KEY,
+    created bigint
+);
+
+INSERT INTO version (version, created)
+    SELECT 1, extract(epoch from now());

@@ -23,10 +23,11 @@ type Item struct {
 }
 
 type History struct {
-	UUID    uuid.UUID `json:"uuid"`
-	Command string    `json:"command"`
-	State   []byte    `json:"state"`
-	Created int64     `json:"created"`
+	UUID      uuid.UUID `json:"uuid"`
+	Command   string    `json:"command"`
+	State     []byte    `json:"state"`
+	Timestamp int64     `json:"timestamp"`
+	Created   int64     `json:"created"`
 }
 
 type User struct {

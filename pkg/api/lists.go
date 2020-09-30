@@ -68,23 +68,7 @@ func postListHandler(conn db.DB) http.HandlerFunc {
 				return err
 			}
 
-			state, err := json.Marshal(list)
-			if err != nil {
-				return err
-			}
-
-			id, err := uuid.NewRandom()
-			if err != nil {
-				return err
-			}
-
-			history := models.History{
-				UUID:    id,
-				Command: CmdListCreate,
-				State:   state,
-				Created: now,
-			}
-			if err := db.CreateHistory(tx, user, history); err != nil {
+			if err := createHistoryForState(tx, CmdListCreate, user, now, list); err != nil {
 				return err
 			}
 
@@ -157,23 +141,7 @@ func patchListHandler(conn db.DB) http.HandlerFunc {
 					return err
 				}
 
-				state, err := json.Marshal(list)
-				if err != nil {
-					return err
-				}
-
-				id, err := uuid.NewRandom()
-				if err != nil {
-					return err
-				}
-
-				history := models.History{
-					UUID:    id,
-					Command: CmdListUpdate,
-					State:   state,
-					Created: now,
-				}
-				if err := db.CreateHistory(tx, user, history); err != nil {
+				if err := createHistoryForState(tx, CmdListUpdate, user, now, list); err != nil {
 					return err
 				}
 
@@ -205,26 +173,13 @@ func deleteListHandler(conn db.DB) http.HandlerFunc {
 			if err := db.DeleteList(tx, user, list); err != nil {
 				return err
 			}
-			state, err := json.Marshal(struct {
-				UUID uuid.UUID `json:"uuid"`
-			}{UUID: list.UUID})
-			if err != nil {
-				return err
-			}
 
-			id, err := uuid.NewRandom()
-			if err != nil {
-				return err
-			}
+			state := struct {
+				UUID uuid.UUID `json:"uuid"`
+			}{UUID: list.UUID}
 
 			now := time.Now().UTC().Unix()
-			history := models.History{
-				UUID:    id,
-				Command: CmdListDelete,
-				State:   state,
-				Created: now,
-			}
-			if err := db.CreateHistory(tx, user, history); err != nil {
+			if err := createHistoryForState(tx, CmdListDelete, user, now, state); err != nil {
 				return err
 			}
 

@@ -3,7 +3,7 @@ version: "3.8"
 services:
   db:
     build:
-      context: ./db
+      context: ./db/procrastdb
       dockerfile: Dockerfile
     environment:
       POSTGRES_PASSWORD: supersecret

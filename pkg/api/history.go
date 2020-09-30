@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"ismacaulay/procrast-api/pkg/db"
 	"ismacaulay/procrast-api/pkg/models"
@@ -67,6 +68,7 @@ func postHistoryHandler(conn db.DB) http.HandlerFunc {
 			return
 		}
 
+		now := time.Now().UTC().Unix()
 		processed := make([]uuid.UUID, 0)
 		for _, history := range *request.History {
 			err = db.Transaction(conn, func(tx db.Conn) error {
@@ -76,6 +78,7 @@ func postHistoryHandler(conn db.DB) http.HandlerFunc {
 					return nil
 				}
 
+				history.Created = now
 				if err := db.CreateHistory(tx, user, history); err != nil {
 					return err
 				}
@@ -194,11 +197,6 @@ func postHistoryHandler(conn db.DB) http.HandlerFunc {
 
 				return nil
 			})
-
-			// if err != nil {
-			// 	respondWithError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
-			// 	return
-			// }
 		}
 
 		respondWithJSON(w, http.StatusCreated, struct {
